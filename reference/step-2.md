@@ -5,60 +5,49 @@
 1. Созданы модели и их дополнительные методы.
 
 ## Порядок выполнения
-
 Данная структура может быть изменена под конретные цели вашего дипломного проекта.
 
 1. Создать модели:
+    1. Shop
+        - name
+        - url
+    2. Category
+        - shops (m2m)
+        - name
+    3. Product
+        - category
+        - name
+    4. ProductInfo
+        - product
+        - shop
+        - name
+        - quantity
+        - price
+        - price_rrc
+    5. Parameter
+        - name
+    6. ProductParameter
+        - product_info
+        - parameter
+        - value
+    7. Order
+        - user
+        - dt
+        - status
+    8. OrderItem
+        - order
+        - product
+        - shop
+        - quantity
+    9. Contact
+        - type
+        - user
+        - value
 
-   1. Shop
-      - name
-      - url
-   2. Category
-      - shops (m2m)
-      - name
-   3. Product
-      - category
-      - name
-   4. ProductInfo
-      - product
-      - shop
-      - name
-      - quantity
-      - price
-      - price_rrc
-   5. Parameter
-      - name
-   6. ProductParameter
-      - product_info
-      - parameter
-      - value
-   7. Order
-      - user
-      - dt
-      - status
-   8. OrderItem
-      - order
-      - product
-      - shop
-      - quantity
-   9. Contact
-      - type
-      - user
-      - value
 2. Пример реального кода из Python:
 
 ```python
-(env) yuriy@Yuriy-ubuntu:/media/yuriy/728456D384569A05/1 _Python-razrabotcik/0_Diplom/python-final-diplom/reference/netology_pd_diplom$ 
-(env) yuriy@Yuriy-ubuntu:/media/yuriy/728456D384569A05/1 _Python-razrabotcik/0_Diplom/python-final-diplom/reference/netology_pd_diplom$ 
-(env) yuriy@Yuriy-ubuntu:/media/yuriy/728456D384569A05/1 _Python-razrabotcik/0_Diplom/python-final-diplom/reference/netology_pd_diplom$ python -m ensurepip --upgrade
-Looking in links: /tmp/tmp_g17z1bm
-Requirement already satisfied: pip in ./env/lib/python3.12/site-packages (24.0)
-(env) yuriy@Yuriy-ubuntu:/media/yuriy/728456D384569A05/1 _Python-razrabotcik/0_Diplom/python-final-diplom/reference/netology_pd_diplom$ pip install -r requirements.txt
-Команда «pip» не найдена. Возможно, вы имели в виду:
-  команда 'ipip' из deb-пакета ipip (1.1.11)
-  команда 'pip' из deb-пакета python3-pip (24.0+dfsg-1ubuntu1.3)
-Попробуйте: sudo apt install <имя_deb-пакета>
-(env) yuriy@Yuriy-ubuntu:/media/yuriy/728456D384569A05/1 _Python-razrabotcik/0_Diplom/python-final-diplom/reference/netology_pd_diplom$ from django.contrib.auth.base_user import BaseUserManager
+from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
@@ -347,4 +336,6 @@ class ConfirmEmailToken(models.Model):
 
     def __str__(self):
         return "Password reset token for user {user}".format(user=self.user)
+
 ```
+           

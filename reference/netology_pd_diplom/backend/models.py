@@ -106,18 +106,17 @@ class Shop(models.Model):
     url = models.URLField(verbose_name='Ссылка', null=True, blank=True)
     user = models.OneToOneField(User, verbose_name='Пользователь',
                                 blank=True, null=True,
-                                on_delete=models.CASCADE)
-    state = models.BooleanField(verbose_name='статус получения заказов', default=True)
-
-    # filename
+                                on_delete=models.CASCADE,
+                                related_name='shop')
+    state = models.BooleanField(verbose_name='Статус получения заказов', default=True)
 
     class Meta:
         verbose_name = 'Магазин'
         verbose_name_plural = "Список магазинов"
-        ordering = ('-name',)
+        ordering = ('name',)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({'активен' if self.state else 'неактивен'})"
 
 
 class Category(models.Model):
@@ -168,6 +167,8 @@ class ProductInfo(models.Model):
             models.UniqueConstraint(fields=['product', 'shop', 'external_id'], name='unique_product_info'),
         ]
 
+    def __str__(self):
+        return f"{self.product.name} - {self.shop.name} ({self.price} руб.)"
 
 class Parameter(models.Model):
     objects = models.manager.Manager()
@@ -218,8 +219,12 @@ class Contact(models.Model):
         verbose_name_plural = "Список контактов пользователя"
 
     def __str__(self):
-        return f'{self.city} {self.street} {self.house}'
-
+        parts = [self.city, self.street]
+        if self.house:
+            parts.append(f"д.{self.house}")
+        if self.apartment:
+            parts.append(f"кв.{self.apartment}")
+        return ", ".join(parts)
 
 class Order(models.Model):
     objects = models.manager.Manager()
@@ -240,9 +245,14 @@ class Order(models.Model):
     def __str__(self):
         return str(self.dt)
 
-    # @property
-    # def sum(self):
-    #     return self.ordered_items.aggregate(total=Sum("quantity"))["total"]
+    @property
+    def sum(self):
+        """Подсчет общей суммы заказа"""
+        from django.db.models import Sum, F
+        result = self.ordered_items.aggregate(
+            total=Sum(F('quantity') * F('product_info__price'))
+        )
+        return result['total'] or 0
 
 
 class OrderItem(models.Model):
