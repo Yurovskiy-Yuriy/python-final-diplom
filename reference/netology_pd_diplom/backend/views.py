@@ -1,4 +1,4 @@
-from distutils.util import strtobool
+# from distutils.util import strtobool
 from rest_framework.request import Request
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -21,6 +21,19 @@ from backend.serializers import UserSerializer, CategorySerializer, ShopSerializ
     OrderItemSerializer, OrderSerializer, ContactSerializer
 from backend.signals import new_user_registered, new_order
 
+def strtobool(val):
+    """
+    Преобразует строку в булево значение.
+    Принимает: 'y', 'yes', 't', 'true', 'on', '1' -> True
+               'n', 'no', 'f', 'false', 'off', '0' -> False
+    """
+    val = str(val).strip().lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    else:
+        raise ValueError(f"invalid truth value {val!r}")
 
 class RegisterAccount(APIView):
     """
