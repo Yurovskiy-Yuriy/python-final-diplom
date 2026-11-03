@@ -406,28 +406,13 @@ class BasketView(APIView):
                 return JsonResponse({'Status': True, 'Обновлено объектов': objects_updated})
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
-
 class PartnerUpdate(APIView):
     """
-    A class for updating partner information.
-
-    Methods:
-    - post: Update the partner information.
-
-    Attributes:
-    - None
+    Класс для обновления прайса от поставщика.
+    Поддерживает загрузку как по URL, так и из локального файла.
     """
 
     def post(self, request, *args, **kwargs):
-        """
-                Update the partner price list information.
-
-                Args:
-                - request (Request): The Django request object.
-
-                Returns:
-                - JsonResponse: The response indicating the status of the operation and any errors.
-                """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -435,43 +420,104 @@ class PartnerUpdate(APIView):
             return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
 
         url = request.data.get('url')
-        if url:
-            validate_url = URLValidator()
-            try:
-                validate_url(url)
-            except ValidationError as e:
-                return JsonResponse({'Status': False, 'Error': str(e)})
+        if not url:
+            return JsonResponse({'Status': False, 'Errors': 'Не указан URL или путь к файлу'})
+
+        try:
+            # Определяем тип источника: URL или локальный файл
+            if url.startswith('http://') or url.startswith('https://'):
+                # Загружаем по URL
+                response = get(url, timeout=10)
+                response.raise_for_status()
+                data = load_yaml(response.content, Loader=Loader)
             else:
-                stream = get(url).content
+                # Читаем локальный файл
+                with open(url, 'r', encoding='utf-8') as f:
+                    data = load_yaml(f, Loader=Loader)
 
-                data = load_yaml(stream, Loader=Loader)
+            # Создаем или обновляем магазин
+            shop, _ = Shop.objects.get_or_create(
+                name=data['shop'],
+                defaults={'user_id': request.user.id}
+            )
 
-                shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
-                for category in data['categories']:
-                    category_object, _ = Category.objects.get_or_create(id=category['id'], name=category['name'])
-                    category_object.shops.add(shop.id)
-                    category_object.save()
-                ProductInfo.objects.filter(shop_id=shop.id).delete()
-                for item in data['goods']:
-                    product, _ = Product.objects.get_or_create(name=item['name'], category_id=item['category'])
+            # Обновляем категории
+            for category in data.get('categories', []):
+                category_object, _ = Category.objects.get_or_create(
+                    id=category['id'],
+                    defaults={'name': category['name']}
+                )
+                category_object.shops.add(shop.id)
 
-                    product_info = ProductInfo.objects.create(product_id=product.id,
-                                                              external_id=item['id'],
-                                                              model=item['model'],
-                                                              price=item['price'],
-                                                              price_rrc=item['price_rrc'],
-                                                              quantity=item['quantity'],
-                                                              shop_id=shop.id)
-                    for name, value in item['parameters'].items():
-                        parameter_object, _ = Parameter.objects.get_or_create(name=name)
-                        ProductParameter.objects.create(product_info_id=product_info.id,
-                                                        parameter_id=parameter_object.id,
-                                                        value=value)
+            # Получаем существующие ProductInfo для этого магазина
+            existing_product_infos = ProductInfo.objects.filter(shop_id=shop.id)
+            
+            # Создаем словарь для быстрого поиска: (product_id, external_id) -> product_info
+            existing_products = {
+                (pi.product_id, pi.external_id): pi 
+                for pi in existing_product_infos
+            }
 
-                return JsonResponse({'Status': True})
+            # Обрабатываем товары
+            for item in data.get('goods', []):
+                # Создаем или получаем продукт
+                product, _ = Product.objects.get_or_create(
+                    name=item['name'],
+                    defaults={'category_id': item['category']}
+                )
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+                # Проверяем, существует ли уже ProductInfo для этого товара
+                key = (product.id, item['id'])
+                if key in existing_products:
+                    # Обновляем существующую запись
+                    product_info = existing_products[key]
+                    product_info.model = item.get('model', '')
+                    product_info.price = item['price']
+                    product_info.price_rrc = item.get('price_rrc', 0)
+                    product_info.quantity = item['quantity']
+                    product_info.save()
+                    
+                    # Удаляем из словаря
+                    del existing_products[key]
+                else:
+                    # Создаем новую запись
+                    product_info = ProductInfo.objects.create(
+                        product_id=product.id,
+                        external_id=item['id'],
+                        model=item.get('model', ''),
+                        price=item['price'],
+                        price_rrc=item.get('price_rrc', 0),
+                        quantity=item['quantity'],
+                        shop_id=shop.id
+                    )
 
+                # Обновляем параметры товара
+                # Сначала удаляем старые параметры для этого ProductInfo
+                ProductParameter.objects.filter(product_info_id=product_info.id).delete()
+                
+                # Затем создаем новые
+                parameters = item.get('parameters', {})
+                if isinstance(parameters, dict):
+                    for param_name, param_value in parameters.items():
+                        parameter_object, _ = Parameter.objects.get_or_create(name=param_name)
+                        ProductParameter.objects.create(
+                            product_info_id=product_info.id,
+                            parameter_id=parameter_object.id,
+                            value=str(param_value)
+                        )
+
+            return JsonResponse({'Status': True, 'Message': 'Импорт успешно завершен'})
+
+        except FileNotFoundError:
+            return JsonResponse({
+                'Status': False, 
+                'Errors': f'Файл не найден: {url}'
+            }, status=404)
+        except Exception as e:
+            return JsonResponse({
+                'Status': False, 
+                'Errors': f'Ошибка при импорте: {str(e)}'
+            }, status=500)
 
 class PartnerState(APIView):
     """

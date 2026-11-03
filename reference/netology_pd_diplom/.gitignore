@@ -53,13 +53,10 @@ coverage.xml
 *.pot
 
 # Django stuff:
-
-
-
-
 */migrations/*
 .log
 db.sqlite3
+logs/
 
 
 # Scrapy stuff:
@@ -91,6 +88,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.env.local
+.env.*.local
 
 # Spyder project settings
 .spyderproject
