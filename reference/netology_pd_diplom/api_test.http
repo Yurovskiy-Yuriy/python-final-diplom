@@ -1,0 +1,237 @@
+# Как пользоваться .http файлом
+
+#   1. Запустите сервер: python3 manage.py runserver
+#   2. В этом файле найдите блок "Вход как покупатель"
+#   3. Нажмите "Send Request"
+#   4. Скопируйте токен из ответа
+#   5. Всавьте его в @token 
+#   ----
+#   6. Найдите блок "Вход как поставщик"
+#   7. Нажмите "Send Request"
+#   8. Скопируйте токен из ответа
+#   5. Всавьте его в @supplierToken 
+
+### ============================================
+### ТЕСТОВЫЕ ДАННЫЕ
+### ============================================
+@baseUrl = http://127.0.0.1:8000/api/v1
+@contentType = application/json
+@token = ВСТАВЬТЕ_ТОКЕН_ПОКУПАТЕЛЯ
+@supplierToken = ВСТАВЬТЕ_ТОКЕН_ПОСТАВЩИКА
+
+
+### ============================================
+### 1. АВТОРИЗАЦИЯ
+### ============================================
+
+### Вход как поставщик (для импорта)
+POST {{baseUrl}}/user/login
+Content-Type: {{contentType}}
+
+{
+  "email": "supplier@example.com",
+  "password": "supplier123"
+}
+
+### Вход как покупатель
+POST {{baseUrl}}/user/login
+Content-Type: {{contentType}}
+
+{
+  "email": "buyer@example.com",
+  "password": "buyer123"
+}
+
+### ============================================
+### 2. РЕГИСТРАЦИЯ
+### ============================================
+
+### Регистрация нового пользователя
+POST {{baseUrl}}/user/register
+Content-Type: {{contentType}}
+
+{
+  "first_name": "Иван",
+  "last_name": "Иванов",
+  "email": "ivan@example.com",
+  "password": "StrongPass123!",
+  "company": "Тестовая компания",
+  "position": "Менеджер"
+}
+
+### ============================================
+### 3. КАТАЛОГ ТОВАРОВ
+### ============================================
+
+### Получить все товары
+GET {{baseUrl}}/products
+Authorization: Token {{token}}
+
+### Получить товары с фильтрацией по магазину
+GET {{baseUrl}}/products?shop_id=1
+Authorization: Token {{token}}
+
+### Получить товары с фильтрацией по категории
+GET {{baseUrl}}/products?category_id=224
+Authorization: Token {{token}}
+
+### Получить все категории
+GET {{baseUrl}}/categories
+Authorization: Token {{token}}
+
+### Получить все магазины
+GET {{baseUrl}}/shops
+Authorization: Token {{token}}
+
+### ============================================
+### 4. КОРЗИНА
+### ============================================
+
+### Добавить товар в корзину
+POST {{baseUrl}}/basket
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "items": "[{\"product_info\": 1, \"quantity\": 2}]"
+}
+
+### Добавить несколько товаров в корзину
+POST {{baseUrl}}/basket
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "items": "[{\"product_info\": 1, \"quantity\": 1}, {\"product_info\": 2, \"quantity\": 3}]"
+}
+
+### Получить корзину
+GET {{baseUrl}}/basket
+Authorization: Token {{token}}
+
+### Обновить количество в корзине
+PUT {{baseUrl}}/basket
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "items": "[{\"id\": 1, \"quantity\": 5}]"
+}
+
+### Удалить товар из корзины
+DELETE {{baseUrl}}/basket
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "items": "1,2"
+}
+
+### ============================================
+### 5. КОНТАКТЫ
+### ============================================
+
+### Получить все контакты
+GET {{baseUrl}}/user/contact
+Authorization: Token {{token}}
+
+### Создать новый контакт
+POST {{baseUrl}}/user/contact
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "city": "Москва",
+  "street": "ул. Тверская",
+  "house": "10",
+  "apartment": "25",
+  "phone": "+79991234567"
+}
+
+### Обновить контакт
+PUT {{baseUrl}}/user/contact
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "id": 1,
+  "city": "Санкт-Петербург",
+  "street": "Невский проспект",
+  "house": "20"
+}
+
+### Удалить контакт
+DELETE {{baseUrl}}/user/contact
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "items": "1"
+}
+
+### ============================================
+### 6. ЗАКАЗЫ
+### ============================================
+
+### Подтвердить заказ (перевести из корзины в заказ)
+POST {{baseUrl}}/order
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "id": 1,
+  "contact": 1
+}
+
+### Получить список заказов
+GET {{baseUrl}}/order
+Authorization: Token {{token}}
+
+### ============================================
+### 7. ФУНКЦИИ ДЛЯ ПОСТАВЩИКОВ
+### ============================================
+
+### Импорт товаров из YAML (локальный файл)
+POST {{baseUrl}}/partner/update
+Content-Type: {{contentType}}
+Authorization: Token {{supplierToken}}
+
+{
+  "url": "/media/yuriy/728456D384569A05/1_Python-razrabotcik/0_Diplom/python-final-diplom/reference/netology_pd_diplom/data/shop1.yaml"
+}
+
+### Получить статус магазина
+GET {{baseUrl}}/partner/state
+Authorization: Token {{supplierToken}}
+
+### Изменить статус приема заказов
+POST {{baseUrl}}/partner/state
+Content-Type: {{contentType}}
+Authorization: Token {{supplierToken}}
+
+{
+  "state": "false"
+}
+
+### Получить заказы поставщика
+GET {{baseUrl}}/partner/orders
+Authorization: Token {{supplierToken}}
+
+### ============================================
+### 8. ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+### ============================================
+
+### Получить данные профиля
+GET {{baseUrl}}/user/details
+Authorization: Token {{token}}
+
+### Обновить профиль
+POST {{baseUrl}}/user/details
+Content-Type: {{contentType}}
+Authorization: Token {{token}}
+
+{
+  "first_name": "Петр",
+  "last_name": "Петров",
+  "company": "Новая компания"
+}

@@ -305,46 +305,61 @@ class BasketView(APIView):
         return Response(serializer.data)
 
     # редактировать корзину
+     # редактировать корзину
     def post(self, request, *args, **kwargs):
         """
-               Add an items to the user's basket.
-
-               Args:
-               - request (Request): The Django request object.
-
-               Returns:
-               - JsonResponse: The response indicating the status of the operation and any errors.
-               """
+        Добавить товары в корзину пользователя.
+        Если товар уже есть — обновить количество.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
-        items_sting = request.data.get('items')
-        if items_sting:
+        items_string = request.data.get('items')
+        if items_string:
             try:
-                items_dict = load_json(items_sting)
+                items_dict = load_json(items_string)
             except ValueError:
                 return JsonResponse({'Status': False, 'Errors': 'Неверный формат запроса'})
             else:
                 basket, _ = Order.objects.get_or_create(user_id=request.user.id, state='basket')
                 objects_created = 0
+                objects_updated = 0
+                
                 for order_item in items_dict:
-                    order_item.update({'order': basket.id})
-                    serializer = OrderItemSerializer(data=order_item)
-                    if serializer.is_valid():
-                        try:
-                            serializer.save()
-                        except IntegrityError as error:
-                            return JsonResponse({'Status': False, 'Errors': str(error)})
-                        else:
-                            objects_created += 1
-
+                    product_info_id = order_item.get('product_info')
+                    quantity = order_item.get('quantity', 1)
+                    
+                    # Проверяем, есть ли уже этот товар в корзине
+                    existing_item = OrderItem.objects.filter(
+                        order_id=basket.id,
+                        product_info_id=product_info_id
+                    ).first()
+                    
+                    if existing_item:
+                        # Товар уже есть — обновляем количество
+                        existing_item.quantity += quantity
+                        existing_item.save()
+                        objects_updated += 1
                     else:
+                        # Товара нет — создаем новую запись
+                        order_item.update({'order': basket.id})
+                        serializer = OrderItemSerializer(data=order_item)
+                        if serializer.is_valid():
+                            try:
+                                serializer.save()
+                                objects_created += 1
+                            except IntegrityError as error:
+                                return JsonResponse({'Status': False, 'Errors': str(error)})
+                        else:
+                            return JsonResponse({'Status': False, 'Errors': serializer.errors})
 
-                        return JsonResponse({'Status': False, 'Errors': serializer.errors})
-
-                return JsonResponse({'Status': True, 'Создано объектов': objects_created})
+                return JsonResponse({
+                    'Status': True, 
+                    'Создано объектов': objects_created,
+                    'Обновлено объектов': objects_updated
+                })
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-
+    
     # удалить товары из корзины
     def delete(self, request, *args, **kwargs):
         """
@@ -648,21 +663,17 @@ class ContactView(APIView):
     # добавить новый контакт
     def post(self, request, *args, **kwargs):
         """
-               Create a new contact for the authenticated user.
-
-               Args:
-               - request (Request): The Django request object.
-
-               Returns:
-               - JsonResponse: The response indicating the status of the operation and any errors.
-               """
+        Создать новый контакт для авторизованного пользователя.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
         if {'city', 'street', 'phone'}.issubset(request.data):
-            request.data._mutable = True
-            request.data.update({'user': request.user.id})
-            serializer = ContactSerializer(data=request.data)
+            # Создаем копию данных и добавляем user
+            contact_data = request.data.copy()
+            contact_data['user'] = request.user.id
+            
+            serializer = ContactSerializer(data=contact_data)
 
             if serializer.is_valid():
                 serializer.save()
@@ -671,7 +682,7 @@ class ContactView(APIView):
                 return JsonResponse({'Status': False, 'Errors': serializer.errors})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-
+    
     # удалить контакт
     def delete(self, request, *args, **kwargs):
         """
@@ -703,32 +714,41 @@ class ContactView(APIView):
 
     # редактировать контакт
     def put(self, request, *args, **kwargs):
+        """
+        Обновить контакт авторизованного пользователя.
+        """
         if not request.user.is_authenticated:
-            """
-                   Update the contact information of the authenticated user.
-
-                   Args:
-                   - request (Request): The Django request object.
-
-                   Returns:
-                   - JsonResponse: The response indicating the status of the operation and any errors.
-                   """
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
         if 'id' in request.data:
-            if request.data['id'].isdigit():
-                contact = Contact.objects.filter(id=request.data['id'], user_id=request.user.id).first()
-                print(contact)
-                if contact:
-                    serializer = ContactSerializer(contact, data=request.data, partial=True)
-                    if serializer.is_valid():
-                        serializer.save()
-                        return JsonResponse({'Status': True})
-                    else:
-                        return JsonResponse({'Status': False, 'Errors': serializer.errors})
+            try:
+                # Безопасно преобразуем в int (работает и со строкой, и с числом)
+                contact_id = int(request.data['id'])
+            except (ValueError, TypeError):
+                return JsonResponse({
+                    'Status': False, 
+                    'Errors': 'Некорректный ID контакта'
+                })
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+            contact = Contact.objects.filter(
+                id=contact_id, 
+                user_id=request.user.id
+            ).first()
+            
+            if contact:
+                serializer = ContactSerializer(contact, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return JsonResponse({'Status': True})
+                else:
+                    return JsonResponse({'Status': False, 'Errors': serializer.errors})
+            else:
+                return JsonResponse({
+                    'Status': False, 
+                    'Errors': 'Контакт не найден или не принадлежит пользователю'
+                })
 
+        return JsonResponse({'Status': False, 'Errors': 'Не указан ID контакта'})
 
 class OrderView(APIView):
     """
@@ -768,30 +788,43 @@ class OrderView(APIView):
     # разместить заказ из корзины
     def post(self, request, *args, **kwargs):
         """
-               Put an order and send a notification.
-
-               Args:
-               - request (Request): The Django request object.
-
-               Returns:
-               - JsonResponse: The response indicating the status of the operation and any errors.
-               """
+        Подтвердить заказ из корзины и отправить уведомление.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
         if {'id', 'contact'}.issubset(request.data):
-            if request.data['id'].isdigit():
-                try:
-                    is_updated = Order.objects.filter(
-                        user_id=request.user.id, id=request.data['id']).update(
-                        contact_id=request.data['contact'],
-                        state='new')
-                except IntegrityError as error:
-                    print(error)
-                    return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
+            try:
+                # Преобразуем в int на случай, если пришли строки
+                order_id = int(request.data['id'])
+                contact_id = int(request.data['contact'])
+                
+                is_updated = Order.objects.filter(
+                    user_id=request.user.id, 
+                    id=order_id
+                ).update(
+                    contact_id=contact_id,
+                    state='new'
+                )
+                
+                if is_updated:
+                    new_order.send(sender=self.__class__, user_id=request.user.id)
+                    return JsonResponse({'Status': True})
                 else:
-                    if is_updated:
-                        new_order.send(sender=self.__class__, user_id=request.user.id)
-                        return JsonResponse({'Status': True})
+                    return JsonResponse({
+                        'Status': False, 
+                        'Errors': 'Заказ не найден или уже подтвержден'
+                    })
+                    
+            except (ValueError, TypeError) as error:
+                return JsonResponse({
+                    'Status': False, 
+                    'Errors': f'Неправильно указаны аргументы: {str(error)}'
+                })
+            except IntegrityError as error:
+                return JsonResponse({
+                    'Status': False, 
+                    'Errors': 'Неправильно указаны аргументы'
+                })
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})

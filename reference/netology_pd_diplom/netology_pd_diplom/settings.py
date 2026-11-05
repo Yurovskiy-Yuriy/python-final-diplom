@@ -127,7 +127,9 @@ STATIC_URL = '/static/'
 AUTH_USER_MODEL = 'backend.User'
 
 # Email settings через переменные окружения
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# Для разработки выводим письма в консоль
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST')
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
