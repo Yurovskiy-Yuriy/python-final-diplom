@@ -305,7 +305,6 @@ class BasketView(APIView):
         return Response(serializer.data)
 
     # редактировать корзину
-     # редактировать корзину
     def post(self, request, *args, **kwargs):
         """
         Добавить товары в корзину пользователя.
