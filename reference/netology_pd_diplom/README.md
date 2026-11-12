@@ -1,68 +1,336 @@
-# Пример API-сервиса для магазина
+# Дипломная работа
 
-[Документация по запросам в PostMan](https://documenter.getpostman.com/view/5037826/SVfJUrSc) 
+# Интернет-магазин
+
+Полнофункциональный backend для интернет-магазина с возможностью управления товарами, корзиной, заказами и пользователями. Реализован на Django + Django REST Framework с использованием PostgreSQL и Docker.
+
+# Возможности
+
+### Для покупателей:
+
+- Регистрация и авторизация с подтверждением email
+- Просмотр каталога товаров с фильтрацией по категориям и магазинам
+- Добавление товаров в корзину от разных магазинов
+- Управление корзиной (добавление, изменение количества, удаление)
+- Создание и редактирование контактов (адресов доставки)
+- Оформление заказов с автоматическим расчетом суммы
+- Просмотр истории заказов
+- Получение email-уведомлений о статусе заказа
+
+### Для поставщиков:
+
+- Импорт товаров из YAML-файлов (локально или по URL)
+- Управление статусом приема заказов
+- Просмотр полученных заказов
+- Автоматическое обновление цен и остатков
+
+### Для администраторов:
+
+- Удобная админ-панель Django
+- Управление пользователями, товарами, заказами
+- Отображение суммы заказов прямо в списке
+- Детальная информация о составе заказа
+- Фильтрация и поиск по всем сущностям
+
+# Структура проекта
+
+```
+netology_pd_diplom/
+├── backend/                   # Основное Django приложение
+│   ├── management/            # Пользовательские команды управления
+│   │   └── commands/
+│   │       └── load_demo_data.py  # Команда для автозагрузки демо-данных и импорта YAML
+│   ├── migrations/            # Миграции базы данных
+│   ├── admin.py               # Настройки админ-панели
+│   ├── apps.py                # Конфигурация приложения
+│   ├── models.py              # Модели данных
+│   ├── serializers.py         # DRF сериализаторы
+│   ├── signals.py             # Сигналы для email-уведомлений
+│   ├── tests.py               # Автоматические тесты
+│   ├── urls.py                # Маршруты API
+│   └── views.py               # API views
+├── data/                      # Данные для импорта
+│   └── shop1.yaml             # Пример файла импорта товаров
+├── netology_pd_diplom/        # Настройки проекта
+│   ├── settings.py            # Конфигурация Django
+│   ├── urls.py                # Корневые маршруты
+│   └── wsgi.py                # WSGI конфигурация
+├── .env                       # Переменные окружения (не в Git)
+├── .env.example               # Шаблон переменных окружения
+├── .gitignore                 # Исключения для Git и Docker
+├── Dockerfile                 # Образ Docker для веб-приложения
+├── docker-compose.yml         # Конфигурация оркестрации Docker Compose
+├── manage.py                  # Скрипт управления проектом Django
+├── requirements.txt           # Python зависимости
+├── README.md                  # Основная документация проекта
+├── api_test.http              # Коллекция запросов для REST Client (VS Code)
+├── test_buyer_flow.py         # Интеграционный скрипт проверки сценария покупки
+└── test_import.py             # Скрипт тестирования импорта товаров
+```
+
+# Быстрый старт
+
+### Вариант 1: Запуск через Docker
+
+Способ запустить проект:
+
+```bash
+# 1. Скопируйте .env.example в .env
+cp .env.example .env
+
+# 2. Отредактируйте .env (укажите пароль для БД и email настройки)
+nano .env
+
+# 3. Запустите проект
+docker-compose up --build
+
+# 4. В новом терминале создайте суперпользователя
+docker-compose exec web python manage.py createsuperuser
+
+# 6. Откройте http://localhost:8000
+```
+
+### Вариант 2: Локальная установка (без Docker)
+
+#### 1. Установите PostgreSQL
+
+```bash
+sudo apt install postgresql postgresql-contrib libpq-dev
+```
+
+#### 2. Создайте базу данных
+
+```bash
+# 1. Создаём пользователя с паролем (замените 'your_secure_password' на свой!)
+sudo -u postgres psql -c "CREATE USER diploma_user WITH PASSWORD 'your_secure_password';"
+
+# 2. Создаём базу данных и назначаем владельца
+sudo -u postgres psql -c "CREATE DATABASE diploma_db OWNER diploma_user;"
+
+# 3. Настраиваем параметры пользователя (рекомендуется для корректной работы Django)
+sudo -u postgres psql -c "ALTER ROLE diploma_user SET client_encoding TO 'utf8';"
+sudo -u postgres psql -c "ALTER ROLE diploma_user SET default_transaction_isolation TO 'read committed';"
+sudo -u postgres psql -c "ALTER ROLE diploma_user SET timezone TO 'UTC';"
+
+# 4. Выдаём права на базу данных
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE diploma_db TO diploma_user;"
+
+# 5. Разрешаем создавать тестовые базы (нужно для запуска тестов Django)
+sudo -u postgres psql -c "ALTER USER diploma_user CREATEDB;"
+```
+
+#### 3. Cоздайте виртуальное окружение
+
+```bash
+python3 -m venv env
+source env/bin/activate
+```
+
+#### 4. Установите зависимости
+
+```bash
+pip install -r requirements.txt
+```
+
+#### 5. Настройте переменные окружения
+
+```bash
+cp .env.example .env
+nano .env  # Укажите ваши настройки
+```
+
+#### 6. Примените миграции и создайте суперпользователя
+
+```bash
+python3 manage.py migrate
+python3 manage.py createsuperuser
+```
+
+#### 7. Запустите сервер
+
+```bash
+python3 manage.py runserver
+```
+
+Откройте http://localhost:8000
+
+# API Endpoints
+
+Базовый URL: `/api/v1/`
+
+### Аутентификация
+
+| Метод | Endpoint           | Описание                                             |
+| ---------- | ------------------ | ------------------------------------------------------------ |
+| POST       | `/user/register` | Регистрация нового пользователя |
+| POST       | `/user/login`    | Авторизация (получение токена)     |
+| POST       | `/user/details`  | Получение/обновление профиля       |
+| POST       | `/user/confirm`  | Подтверждение email                             |
+
+### Каталог товаров
+
+| Метод | Endpoint        | Описание                                                                  |
+| ---------- | --------------- | --------------------------------------------------------------------------------- |
+| GET        | `/products`   | Список товаров (с фильтрами: `shop_id`, `category_id`) |
+| GET        | `/shops`      | Список магазинов                                                   |
+| GET        | `/categories` | Список категорий                                                   |
+
+### Корзина
+
+| Метод | Endpoint    | Описание                                     |
+| ---------- | ----------- | ---------------------------------------------------- |
+| GET        | `/basket` | Получить корзину                      |
+| POST       | `/basket` | Добавить товары в корзину      |
+| PUT        | `/basket` | Обновить количество товаров |
+| DELETE     | `/basket` | Удалить товары из корзины      |
+
+### Контакты
+
+| Метод | Endpoint          | Описание                                 |
+| ---------- | ----------------- | ------------------------------------------------ |
+| GET        | `/user/contact` | Получить список контактов |
+| POST       | `/user/contact` | Создать новый контакт         |
+| PUT        | `/user/contact` | Обновить контакт                  |
+| DELETE     | `/user/contact` | Удалить контакт                    |
+
+### Заказы
+
+| Метод | Endpoint   | Описание                                      |
+| ---------- | ---------- | ----------------------------------------------------- |
+| GET        | `/order` | Получить список заказов          |
+| POST       | `/order` | Подтвердить заказ из корзины |
+
+### Функции для поставщиков
+
+| Метод | Endpoint            | Описание                                          |
+| ---------- | ------------------- | --------------------------------------------------------- |
+| POST       | `/partner/update` | Импорт товаров из YAML                     |
+| GET        | `/partner/state`  | Получить статус магазина            |
+| POST       | `/partner/state`  | Изменить статус приема заказов |
+| GET        | `/partner/orders` | Получить заказы поставщика        |
+
+### Примеры запросов
+
+Файл `api_test.http` содержит готовые запросы для REST Client.
+
+# Тестирование
+
+### Автоматические тесты
+
+```bash
+# Локально
+python3 manage.py test backend
+
+# В Docker
+docker-compose exec web python manage.py test backend
+```
+
+Тесты покрывают:
+
+- Полный сценарий покупки (логин → товары → корзина → контакт → заказ)
+- Обновление контактов (с разными типами ID)
+- Доступ к админ-панели
+- Корректность расчета суммы заказов
+
+### Интеграционные тесты
+
+```bash
+# Тест сценария покупки через реальные HTTP-запросы
+python3 test_buyer_flow.py
+
+# Тест импорта товаров
+python3 test_import.py
+```
+
+### Тестирование через REST Client
+
+Установите плагин REST Client в VS Code и откройте файл `api_test.http`.
+
+# Админка
+
+Админ-панель доступна по адресу: `http://localhost:8000/admin/`
+
+### Возможности админки:
+
+- **Заказы:**
+
+  - Отображение суммы заказа прямо в списке
+  - Количество позиций в заказе
+  - Адрес доставки
+  - Фильтры по статусу и дате
+  - Детальная таблица с товарами при открытии заказа
+- **Товары:**
+
+  - Счетчики магазинов и категорий
+  - Поиск по названию
+  - Фильтрация по категории
+- **Пользователи:**
+
+  - Разделение на покупателей и поставщиков
+  - Поиск по email и имени
+  - Управление правами доступа
+
+# Модели данных
+
+### Основные модели:
+
+- **User** — пользователь (покупатель/поставщик)
+- **Shop** — магазин поставщика
+- **Category** — категория товаров
+- **Product** — товар
+- **ProductInfo** — информация о товаре в магазине (цена, количество)
+- **Parameter** — параметр товара (например, "Диагональ")
+- **ProductParameter** — значение параметра для товара
+- **Order** — заказ
+- **OrderItem** — позиция в заказе
+- **Contact** — контакт пользователя (адрес доставки)
 
 
 
+# Безопасность
 
-## **Получить исходный код**
+- Пароли хешируются
+- Секретные ключи хранятся в `.env` (не в Git)
+- Токены для API авторизации
+- `.env` добавлен в `.gitignore`
 
-    git config --global user.name "YOUR_USERNAME"
-    
-    git config --global user.email "your_email_address@example.com"
-    
-    mkdir ~/my_diplom
-    
-    cd my_diplom
-    
-    git clone git@github.com:A-Iskakov/netology_pd_diplom.git
-    
-    cd netology_pd_diplom
-    
-    sudo pip3 install  --upgrade pip
-    
-    sudo pip3 install -r requirements.txt
-    
-    python3 manage.py makemigrations
-     
-    python3 manage.py migrate
-    
-    python3 manage.py createsuperuser    
-    
- 
-## **Проверить работу модулей**
-    
-    
-    python3 manage.py runserver 0.0.0.0:8000
+### Примечание по email-уведомлениям
+
+В текущей конфигурации для среды разработки используется `console.EmailBackend`, который выводит письма в консоль вместо реальной отправки через SMTP. Это сделано для:
+
+- Избежания ошибок аутентификации SMTP при разработке
+- Ускорения тестирования (не нужно ждать отправки писем)
+- Возможности видеть содержимое писем в логах
+
+Для продакшена достаточно изменить в `settings.py`:
+
+```python
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+```
+
+И убедиться, что в `.env` указан корректный "Пароль приложения" от почтового сервиса (Mail.ru, Gmail и т.д.), а не основной пароль от аккаунта.
 
 
-## **Установить СУБД (опционально)**
+### Переменные окружения
 
-    sudo nano  /etc/apt/sources.list.d/pgdg.list
-    
-    ----->
-    deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main
-    <<----
-    
-    
-    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-    
-    sudo apt-get update
-    
-    sudo apt-get install postgresql-11 postgresql-server-dev-11
-    
-    sudo -u postgres psql postgres
-    
-    create user diplom_user with password 'password';
-    
-    alter role diplom_user set client_encoding to 'utf8';
-    
-    alter role diplom_user set default_transaction_isolation to 'read committed';
-    
-    alter role diplom_user set timezone to 'Europe/Moscow';
-    
-    create database diplom_db owner mploy;
-    alter user mploy createdb;
+Все конфиденциальные данные хранятся в файле `.env`
 
-    
-   
+# Решение проблем
+
+### Ошибка "port is already in use"
+
+```bash
+# Найдите процесс, занимающий порт
+lsof -i :8000
+
+# Убейте процесс
+kill -9 <PID>
+```
+
+### Ошибка импорта товаров
+
+Убедитесь, что:
+
+1. Файл `shop1.yaml` существует
+2. У пользователя тип `shop`
+3. Путь к файлу указан правильно

@@ -1,0 +1,53 @@
+# Виртуальное окружение
+env/
+venv/
+.venv/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+
+# Переменные окружения
+.env
+.env.local
+
+# База данных
+db.sqlite3
+*.sqlite3
+
+# Media и static
+media/
+staticfiles/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Документация
+*.md
+!README.md
+
+# Тестовые скрипты
+test_*.py
+demo_*.py
+*.http
+
+# OS
+.DS_Store
+Thumbs.db

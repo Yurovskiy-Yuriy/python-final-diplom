@@ -156,3 +156,11 @@ REST_FRAMEWORK = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Настройки для Docker
+if os.environ.get('DB_HOST') == 'db':
+    # Мы внутри Docker-контейнера
+    ALLOWED_HOSTS = ['*']
+
+# Настройки для сбора статических файлов
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
